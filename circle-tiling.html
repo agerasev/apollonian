@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Circle Tiling</title>
+    <script type="text/javascript" src="./vec2.js"></script>
+    <script type="text/javascript">
+        let EPS = 1e-8;
+
+        class Segment {
+            constructor(v0, v1, s) {
+                this.vs = [v0, v1];
+                this.s = s;
+            }
+            draw(cnt) {
+                //cnt.moveTo(this.vs[0].x, this.vs[0].y);
+                if (this.s < EPS) {
+                    cnt.lineTo(this.vs[1].x, this.vs[1].y);
+                } else {
+                    let a = this.vs[0];
+                    let b = this.vs[1];
+                    let c = a.add(b).div(2);
+                    let d = b.sub(a).rr();
+                    let l = d.len()/2;
+                    d = d.div(2*l);
+                    let s = this.s;
+                    let t = Math.sqrt(1/(s*s) - l*l);
+                    let p = c.add(d.mul(t));
+
+                    let da = a.sub(p);
+                    let aa = Math.atan2(da.y, da.x);
+                    let db = b.sub(p);
+                    let ab = Math.atan2(db.y, db.x);
+
+                    cnt.arc(p.x, p.y, 1/s, aa, ab);
+                }
+            }
+        }
+
+        class Uniform {
+            constructor(d, l, s) {
+                this.d = d;
+                this.l = l;
+                this.s = s;
+            }
+        }
+
+        class Triangle {
+            constructor(vertices, sigmas) {
+                this.vertices = vertices;
+                this.sigmas = sigmas;
+            }
+            seg(i) {
+                return new Segment(
+                    this.vertices[i%3],
+                    this.vertices[(i+1)%3],
+                    this.sigmas[i%3]
+                );
+            }
+            draw(cnt) {
+                //cnt.moveTo(this.vertices[0].x, this.vertices[0].y);
+                //cnt.lineTo(this.vertices[1].x, this.vertices[1].y);
+                //cnt.lineTo(this.vertices[2].x, this.vertices[2].y);
+                for (let i = 0; i < 3; ++i) {
+                    this.seg(i).draw(cnt);
+                }
+            }
+        }
+
+        let seg_to_uni = (seg) => {
+
+        }
+
+        let cnv = null;
+        let cnt = null;
+        window.addEventListener("load", () => {
+            cnv = document.getElementById("cnv");
+            cnt = cnv.getContext("2d");
+            let triangle = new Triangle(
+                [new Vec2(400.0, 100.0), new Vec2(53.0, 700.0), new Vec2(800.0 - 53.0, 700.0)],
+                [1e-3, 4e-4, 0]
+            );
+            cnt.fillStyle = "rgb(0,0,0)";
+            cnt.beginPath();
+            triangle.draw(cnt);
+            cnt.closePath();
+            cnt.fill();
+        });
+    </script>
+</head>
+<body>
+    <canvas width=800 height=800 id="cnv">HTML5 Canvas not supported</canvas>
+</body>
+</html>
