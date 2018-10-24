@@ -11,7 +11,28 @@
         };
         let sqrt = (x) => {
             return Math.sqrt(x);
-        } 
+        }
+
+        class Circle {
+            constructor(p, r) {
+                this.p = p;
+                this.r = r;
+            }
+            inverse(pos) {
+                let ip = this.p.sub(pos);
+                return new Circle(
+                    pos.add(ip.div(ip.len2() - sqr(this.r))),
+                    this.r/(ip.len2() - sqr(this.r))
+                );
+            }
+            segment(d0, d1) {
+                return new Segment(
+                    this.p.add(d0.mul(this.r)), 
+                    this.p.add(d1.mul(this.r)),
+                    1/this.r
+                );
+            }
+        }
 
         class Segment {
             constructor(v0, v1, s) {
@@ -40,6 +61,21 @@
                     cnt.arc(p.x, p.y, 1/s, aa, ab);
                 }
             }
+            uniform(pos) {
+                let p0 = this.vs[0].sub(pos);
+                let p1 = this.vs[1].sub(pos);
+                let z = p1.sub(p0);
+                let b = z.len()/2;
+                let c = p0.add(p1).div(2);
+                let d = z.rr().norm();
+                let s = this.s;
+                let t = sqrt(1-s*s*b*b);
+                let u = c.mul(s).add(d.mul(t));
+                let f = u.norm();
+                let m = s*p0.dot(p1) + 2*c.dot(d)*t;
+                let l = m/(sqrt(s*m + 1) + 1);
+                return new Uniform(f, l, s);
+            }
         }
 
         class Uniform {
@@ -60,6 +96,12 @@
                     let p = pos.add(this.d.mul(this.l + 1/this.s));
                     cnt.arc(p.x, p.y, r, 0, 2*Math.PI);
                 }
+            }
+            inverse() {
+                let d_ = this.d;
+                let l_ = this.s/(this.l*this.s + 2);
+                let s_ = this.l*(this.s*this.l + 2);
+                return new Uniform(d_, l_, s_);
             }
         }
 
@@ -88,36 +130,25 @@
                 for (let i = 0; i < 3; ++i) {
                     cnt.strokeStyle = "rgb(0,0,0)";
                     cnt.beginPath();
-                    seg_to_uni(this.seg(i), pos).draw(cnt, pos);
+                    this.seg(i).uniform(pos).draw(cnt, pos);
                     cnt.stroke();
                 }
             }
-            draw_inv(cnt, pos, ir) {
+            draw_inv(cnt, pos) {
                 for (let i = 0; i < 3; ++i) {
                     cnt.strokeStyle = "rgb(0,0,0)";
                     cnt.beginPath();
-                    inverse(seg_to_uni(this.seg(i), pos), ir).draw(cnt, pos);
+                    this.seg(i).uniform(pos).inverse().draw(cnt, pos);
                     cnt.stroke();
                 }
             }
-            draw_inner(cnt, ir) {
+            incircle() {
                 let pos = this.vertices[0];
-                cnt.strokeStyle = "rgb(0,0,0)";
 
-                let ur = inverse(seg_to_uni(this.seg(0), pos), ir);
-                cnt.beginPath();
-                ur.draw(cnt, pos);
-                cnt.stroke();
-                
-                let uo = inverse(seg_to_uni(this.seg(1), pos), ir);
-                cnt.beginPath();
-                uo.draw(cnt, pos);
-                cnt.stroke();
-                
-                let ul = inverse(seg_to_uni(this.seg(2), pos), ir);
-                cnt.beginPath();
-                ul.draw(cnt, pos);
-                cnt.stroke();
+                let ur = this.seg(0).uniform(pos).inverse();
+                let uo = this.seg(1).uniform(pos).inverse();
+                let ul = this.seg(2).uniform(pos).inverse();
+
 
                 let dr = ur.d.lr();
                 let dl = ul.d.rr();
@@ -127,82 +158,16 @@
                 let prl = pr.add(d.lr().mul(pl.sub(pr).cross(dl)/d.lr().cross(dl)));
                 let pc = pr.add(prl).div(2);
 
-                cnt.strokeStyle = "rgb(255,0,0)";
-                
-                cnt.beginPath();
-                cnt.moveTo(pc.x, pc.y);
-                let _dl = pc.add(d.mul(1e4));
-                cnt.lineTo(_dl.x, _dl.y);
-                cnt.stroke();
-
-                cnt.beginPath();
-                cnt.arc(pr.x, pr.y, 4, 0, 2*Math.PI);
-                cnt.stroke();
-
-                cnt.beginPath();
-                cnt.arc(pl.x, pl.y, 4, 0, 2*Math.PI);
-                cnt.stroke();
-
-                cnt.beginPath();
-                cnt.arc(prl.x, prl.y, 4, 0, 2*Math.PI);
-                cnt.stroke();
-
-                cnt.beginPath();
-                cnt.arc(pc.x, pc.y, 4, 0, 2*Math.PI);
-                cnt.stroke();
-
-                cnt.beginPath();
-                cnt.moveTo(pr.x, pr.y);
-                cnt.lineTo(prl.x, prl.y);
-                cnt.stroke();
-
-                cnt.strokeStyle = "rgb(0,0,255)";
-
                 let s = uo.s;
                 let sk = pc.sub(pos).sub(uo.d.mul(uo.l)).mul(s).sub(uo.d);
-
-                let _c = pc.sub(sk.div(s));
-                cnt.beginPath();
-                cnt.arc(_c.x, _c.y, 4, 0, 2*Math.PI);
-                cnt.stroke();
-
-                cnt.beginPath();
-                let move = false;
-                for (let i = 0; i < 1000; ++i) {
-                    let x = i;
-                    let y = sqr(x) + 2*sk.div(s).dot(d)*x + sk.div(s).len2() - 1/sqr(s);
-                    let z = pc.add(d.mul(x)).add(d.lr().mul(1e-3*y));
-                    if (!move) {
-                        cnt.moveTo(z.x, z.y);
-                        move = true;
-                    } else {
-                        cnt.lineTo(z.x, z.y);
-                    }
-                }
-                cnt.stroke();
-
-                /*
-                let t_ = (sqrt(sqr(sk.dot(d)) - sk.len2() + 1) - sk.dot(d))/s;
-                let p_ = pc.add(d.mul(t_));
-                cnt.beginPath();
-                cnt.arc(p_.x, p_.y, 4, 0, 2*Math.PI);
-                cnt.stroke();                
-                */
 
                 let td = sqrt(sqr(sk.dot(d)) - sk.len2() + 1) + sk.dot(d);
                 let pp = pc.sub(pos);
                 let pp2 = pp.len2();
                 let ppd = pp.dot(uo.d);
                 let tn = 2*(ppd - uo.l) - s*(pp2 - 2*ppd*uo.l + sqr(uo.l));
-                //let tn = 2*pc.sub(pos).dot(ul.d)*(ul.l*s + 1) - 2*ul.l - s*pc.sub(pos).len2();
                 let t = tn/td;
                 let p = pc.add(d.mul(t));
-                
-                cnt.beginPath();
-                cnt.arc(p.x, p.y, 4, 0, 2*Math.PI);
-                cnt.stroke();
-
-                cnt.strokeStyle = "rgb(0,127,0)";
                 
                 let dc = pos.sub(p).mul(s).add(uo.d.mul(s*uo.l + 1)).norm();
                 let cb = -d.dot(dc);
@@ -215,93 +180,36 @@
                 let cx = -l*ca*(2 + s*l*ca);
                 let x = (sqrt(sqr(bx) - ax*cx) - bx)/ax;
                 let ic = p.add(d.mul(x));
-                let is = 1/(l*ca + x*sa);
+                let ir = l*ca + x*sa;
 
-                let _dc = p.add(dc.mul(1/s));
-                cnt.beginPath();
-                cnt.moveTo(p.x, p.y);
-                cnt.lineTo(_dc.x, _dc.y);
-                cnt.stroke();
+                return (new Circle(ic, ir)).inverse(pos);
+            }
+            draw_inner(cnt) {
+                cnt.strokeStyle = "rgb(0,0,0)";
 
-                let _prt = p.add(d.lr().mul(l));
-                let _plt = p.add(d.rr().mul(l));
                 cnt.beginPath();
-                cnt.moveTo(_prt.x, _prt.y);
-                cnt.lineTo(_plt.x, _plt.y);
-                cnt.stroke();
-
-                let _h = d.lr().dot(p.sub(_c));
-                cnt.beginPath();
-                move = false;
-                for (let i = 0; i < 1000; ++i) {
-                    let x = i - 500;
-                    let y = sqr(_h) + sqr(sqrt(1/sqr(s) - sqr(_h)) + x) - sqr(1/s + l*ca + x*sa);
-                    //let y = 1 - sqr(cb) + sqr(cb + s*x) - sqr(1 + s*l*ca + s*x*sa);
-                    //let y = ax*sqr(x) + 2*bx*x + cx;
-                    let z = p.add(d.mul(x)).add(d.lr().mul(1e-3*y));
-                    if (!move) {
-                        cnt.moveTo(z.x, z.y);
-                        move = true;
-                    } else {
-                        cnt.lineTo(z.x, z.y);
-                    }
+                for (let i = 0; i < 3; ++i) {
+                    this.seg(i).draw(cnt);
                 }
                 cnt.stroke();
+                
+                let ic = this.incircle();
+                console.log(ic.p.toString());
 
                 cnt.beginPath();
-                cnt.arc(ic.x, ic.y, 4, 0, 2*Math.PI);
-                cnt.stroke();
-
-                cnt.beginPath();
-                cnt.arc(ic.x, ic.y, 1/is, 0, 2*Math.PI);
+                cnt.arc(ic.p.x, ic.p.y, ic.r, 0, 2*Math.PI);
                 cnt.stroke();
             }
         }
-
-        let seg_to_uni = (seg, pos) => {
-            let p0 = seg.vs[0].sub(pos);
-            let p1 = seg.vs[1].sub(pos);
-            let z = p1.sub(p0);
-            let b = z.len()/2;
-            let c = p0.add(p1).div(2);
-            let d = z.rr().norm();
-            let s = seg.s;
-            let t = sqrt(1-s*s*b*b);
-            let u = c.mul(s).add(d.mul(t));
-            let f = u.norm();
-            let m = s*p0.dot(p1) + 2*c.dot(d)*t;
-            let l = m/(sqrt(s*m + 1) + 1);
-            return new Uniform(f, l, s);
-        }
-
-        let inverse = (uni, ir) => {
-            let d_ = uni.d;
-            let l_ = uni.s/(uni.l*uni.s + 2)*(ir*ir);
-            let s_ = uni.l*(uni.s*uni.l + 2)/(ir*ir);
-            return new Uniform(d_, l_, s_);
-        };
 
         window.addEventListener("load", () => {
             let cnv = document.getElementById("cnv");
             let cnt = cnv.getContext("2d");
             let triangle = new Triangle(
                 [new Vec2(400.0, 100.0), new Vec2(53.0, 700.0), new Vec2(800.0 - 53.0, 700.0)],
-                [1e-3, 4e-4, 0.0]
+                [1e-3, 4e-4, 0]
             );
-            let draw = (pos, ir) => {
-                cnt.clearRect(0,0,cnv.width,cnv.height);
-                triangle.draw(cnt);
-                triangle.draw_uni(cnt, pos);
-                triangle.draw_inv(cnt, pos, ir);
-            }
-            /*
-            cnv.addEventListener("mousemove", (e) => {
-                let p = new Vec2(e.pageX, e.pageY);
-                draw(p, 2e2);
-            })
-            draw(new Vec2(400, 400), 2e2);
-            */
-            triangle.draw_inner(cnt, 4e2);
+            triangle.draw_inner(cnt, 1);
         });
     </script>
     <style type="text/css">
