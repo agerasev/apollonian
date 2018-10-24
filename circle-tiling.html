@@ -171,7 +171,7 @@
                 for (let i = 0; i < 1000; ++i) {
                     let x = i;
                     let y = sqr(x) + 2*sk.div(s).dot(d)*x + sk.div(s).len2() - 1/sqr(s);
-                    let z = pc.add(d.mul(i)).add(d.lr().mul(1e-3*y));
+                    let z = pc.add(d.mul(x)).add(d.lr().mul(1e-3*y));
                     if (!move) {
                         cnt.moveTo(z.x, z.y);
                         move = true;
@@ -201,7 +201,60 @@
                 cnt.beginPath();
                 cnt.arc(p.x, p.y, 4, 0, 2*Math.PI);
                 cnt.stroke();
+
+                cnt.strokeStyle = "rgb(0,127,0)";
                 
+                let dc = pos.sub(p).mul(s).add(uo.d.mul(s*uo.l + 1)).norm();
+                let cb = -d.dot(dc);
+                let ca = d.dot(dr);
+                let sa = d.cross(dr);
+                let ta = sa/ca;
+                let l = pr.sub(prl).len()/2 + t*ta;
+                let ax = s*sqr(ca);
+                let bx = cb - sa - s*l*ca*sa;
+                let cx = -l*ca*(2 + s*l*ca);
+                let x = (sqrt(sqr(bx) - ax*cx) - bx)/ax;
+                let ic = p.add(d.mul(x));
+                let is = 1/(l*ca + x*sa);
+
+                let _dc = p.add(dc.mul(1/s));
+                cnt.beginPath();
+                cnt.moveTo(p.x, p.y);
+                cnt.lineTo(_dc.x, _dc.y);
+                cnt.stroke();
+
+                let _prt = p.add(d.lr().mul(l));
+                let _plt = p.add(d.rr().mul(l));
+                cnt.beginPath();
+                cnt.moveTo(_prt.x, _prt.y);
+                cnt.lineTo(_plt.x, _plt.y);
+                cnt.stroke();
+
+                let _h = d.lr().dot(p.sub(_c));
+                cnt.beginPath();
+                move = false;
+                for (let i = 0; i < 1000; ++i) {
+                    let x = i - 500;
+                    let y = sqr(_h) + sqr(sqrt(1/sqr(s) - sqr(_h)) + x) - sqr(1/s + l*ca + x*sa);
+                    //let y = 1 - sqr(cb) + sqr(cb + s*x) - sqr(1 + s*l*ca + s*x*sa);
+                    //let y = ax*sqr(x) + 2*bx*x + cx;
+                    let z = p.add(d.mul(x)).add(d.lr().mul(1e-3*y));
+                    if (!move) {
+                        cnt.moveTo(z.x, z.y);
+                        move = true;
+                    } else {
+                        cnt.lineTo(z.x, z.y);
+                    }
+                }
+                cnt.stroke();
+
+                cnt.beginPath();
+                cnt.arc(ic.x, ic.y, 4, 0, 2*Math.PI);
+                cnt.stroke();
+
+                cnt.beginPath();
+                cnt.arc(ic.x, ic.y, 1/is, 0, 2*Math.PI);
+                cnt.stroke();
             }
         }
 
@@ -248,7 +301,7 @@
             })
             draw(new Vec2(400, 400), 2e2);
             */
-            triangle.draw_inner(cnt, 5e2);
+            triangle.draw_inner(cnt, 4e2);
         });
     </script>
     <style type="text/css">
