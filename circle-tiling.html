@@ -6,6 +6,12 @@
     <script type="text/javascript" src="./vec2.js"></script>
     <script type="text/javascript">
         let EPS = 1e-8;
+        let sqr = (x) => {
+            return x*x;
+        };
+        let sqrt = (x) => {
+            return Math.sqrt(x);
+        } 
 
         class Segment {
             constructor(v0, v1, s) {
@@ -23,7 +29,7 @@
                     let l = d.len()/2;
                     d = d.div(2*l);
                     let s = this.s;
-                    let t = Math.sqrt(1/(s*s) - l*l);
+                    let t = sqrt(1/(s*s) - l*l);
                     let p = c.add(d.mul(t));
 
                     let da = a.sub(p);
@@ -43,7 +49,7 @@
                 this.s = s;
             }
             draw(cnt, pos) {
-                if (Math.abs(this.s) < Math.sqrt(EPS)) {
+                if (Math.abs(this.s) < sqrt(EPS)) {
                     let c = pos.add(this.d.mul(this.l));
                     let f = c.add(this.d.lr().mul(1e4));
                     let t = c.add(this.d.rr().mul(1e4));
@@ -88,11 +94,114 @@
             }
             draw_inv(cnt, pos, ir) {
                 for (let i = 0; i < 3; ++i) {
-                    cnt.strokeStyle = "rgb(255,0,0)";
+                    cnt.strokeStyle = "rgb(0,0,0)";
                     cnt.beginPath();
                     inverse(seg_to_uni(this.seg(i), pos), ir).draw(cnt, pos);
                     cnt.stroke();
                 }
+            }
+            draw_inner(cnt, ir) {
+                let pos = this.vertices[0];
+                cnt.strokeStyle = "rgb(0,0,0)";
+
+                let ur = inverse(seg_to_uni(this.seg(0), pos), ir);
+                cnt.beginPath();
+                ur.draw(cnt, pos);
+                cnt.stroke();
+                
+                let uo = inverse(seg_to_uni(this.seg(1), pos), ir);
+                cnt.beginPath();
+                uo.draw(cnt, pos);
+                cnt.stroke();
+                
+                let ul = inverse(seg_to_uni(this.seg(2), pos), ir);
+                cnt.beginPath();
+                ul.draw(cnt, pos);
+                cnt.stroke();
+
+                let dr = ur.d.lr();
+                let dl = ul.d.rr();
+                let d = dr.add(dl).norm();
+                let pr = pos.add(ur.d.mul(ur.l));
+                let pl = pos.add(ul.d.mul(ul.l));
+                let prl = pr.add(d.lr().mul(pl.sub(pr).cross(dl)/d.lr().cross(dl)));
+                let pc = pr.add(prl).div(2);
+
+                cnt.strokeStyle = "rgb(255,0,0)";
+                
+                cnt.beginPath();
+                cnt.moveTo(pc.x, pc.y);
+                let _dl = pc.add(d.mul(1e4));
+                cnt.lineTo(_dl.x, _dl.y);
+                cnt.stroke();
+
+                cnt.beginPath();
+                cnt.arc(pr.x, pr.y, 4, 0, 2*Math.PI);
+                cnt.stroke();
+
+                cnt.beginPath();
+                cnt.arc(pl.x, pl.y, 4, 0, 2*Math.PI);
+                cnt.stroke();
+
+                cnt.beginPath();
+                cnt.arc(prl.x, prl.y, 4, 0, 2*Math.PI);
+                cnt.stroke();
+
+                cnt.beginPath();
+                cnt.arc(pc.x, pc.y, 4, 0, 2*Math.PI);
+                cnt.stroke();
+
+                cnt.beginPath();
+                cnt.moveTo(pr.x, pr.y);
+                cnt.lineTo(prl.x, prl.y);
+                cnt.stroke();
+
+                cnt.strokeStyle = "rgb(0,0,255)";
+
+                let s = uo.s;
+                let sk = pc.sub(pos).sub(uo.d.mul(uo.l)).mul(s).sub(uo.d);
+
+                let _c = pc.sub(sk.div(s));
+                cnt.beginPath();
+                cnt.arc(_c.x, _c.y, 4, 0, 2*Math.PI);
+                cnt.stroke();
+
+                cnt.beginPath();
+                let move = false;
+                for (let i = 0; i < 1000; ++i) {
+                    let x = i;
+                    let y = sqr(x) + 2*sk.div(s).dot(d)*x + sk.div(s).len2() - 1/sqr(s);
+                    let z = pc.add(d.mul(i)).add(d.lr().mul(1e-3*y));
+                    if (!move) {
+                        cnt.moveTo(z.x, z.y);
+                        move = true;
+                    } else {
+                        cnt.lineTo(z.x, z.y);
+                    }
+                }
+                cnt.stroke();
+
+                /*
+                let t_ = (sqrt(sqr(sk.dot(d)) - sk.len2() + 1) - sk.dot(d))/s;
+                let p_ = pc.add(d.mul(t_));
+                cnt.beginPath();
+                cnt.arc(p_.x, p_.y, 4, 0, 2*Math.PI);
+                cnt.stroke();                
+                */
+
+                let td = sqrt(sqr(sk.dot(d)) - sk.len2() + 1) + sk.dot(d);
+                let pp = pc.sub(pos);
+                let pp2 = pp.len2();
+                let ppd = pp.dot(uo.d);
+                let tn = 2*(ppd - uo.l) - s*(pp2 - 2*ppd*uo.l + sqr(uo.l));
+                //let tn = 2*pc.sub(pos).dot(ul.d)*(ul.l*s + 1) - 2*ul.l - s*pc.sub(pos).len2();
+                let t = tn/td;
+                let p = pc.add(d.mul(t));
+                
+                cnt.beginPath();
+                cnt.arc(p.x, p.y, 4, 0, 2*Math.PI);
+                cnt.stroke();
+                
             }
         }
 
@@ -104,11 +213,11 @@
             let c = p0.add(p1).div(2);
             let d = z.rr().norm();
             let s = seg.s;
-            let t = Math.sqrt(1-s*s*b*b);
+            let t = sqrt(1-s*s*b*b);
             let u = c.mul(s).add(d.mul(t));
             let f = u.norm();
             let m = s*p0.dot(p1) + 2*c.dot(d)*t;
-            let l = m/(Math.sqrt(s*m + 1) + 1);
+            let l = m/(sqrt(s*m + 1) + 1);
             return new Uniform(f, l, s);
         }
 
@@ -132,11 +241,14 @@
                 triangle.draw_uni(cnt, pos);
                 triangle.draw_inv(cnt, pos, ir);
             }
+            /*
             cnv.addEventListener("mousemove", (e) => {
                 let p = new Vec2(e.pageX, e.pageY);
                 draw(p, 2e2);
             })
             draw(new Vec2(400, 400), 2e2);
+            */
+            triangle.draw_inner(cnt, 5e2);
         });
     </script>
     <style type="text/css">
