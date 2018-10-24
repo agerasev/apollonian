@@ -13,8 +13,7 @@
                 this.s = s;
             }
             draw(cnt) {
-                //cnt.moveTo(this.vs[0].x, this.vs[0].y);
-                if (this.s < EPS) {
+                if (Math.abs(this.s) < EPS) {
                     cnt.lineTo(this.vs[1].x, this.vs[1].y);
                 } else {
                     let a = this.vs[0];
@@ -43,6 +42,19 @@
                 this.l = l;
                 this.s = s;
             }
+            draw(cnt, pos) {
+                if (Math.abs(this.s) < Math.sqrt(EPS)) {
+                    let c = pos.add(this.d.mul(this.l));
+                    let f = c.add(this.d.lr().mul(1e4));
+                    let t = c.add(this.d.rr().mul(1e4));
+                    cnt.moveTo(f.x, f.y);
+                    cnt.lineTo(t.x, t.y);
+                } else {
+                    let r = this.s > 0 ? 1/this.s : -1/this.s;
+                    let p = pos.add(this.d.mul(this.l + 1/this.s));
+                    cnt.arc(p.x, p.y, r, 0, 2*Math.PI);
+                }
+            }
         }
 
         class Triangle {
@@ -58,35 +70,81 @@
                 );
             }
             draw(cnt) {
-                //cnt.moveTo(this.vertices[0].x, this.vertices[0].y);
-                //cnt.lineTo(this.vertices[1].x, this.vertices[1].y);
-                //cnt.lineTo(this.vertices[2].x, this.vertices[2].y);
+                cnt.fillStyle = "rgb(127,127,127)";
+                cnt.beginPath();
                 for (let i = 0; i < 3; ++i) {
                     this.seg(i).draw(cnt);
+                }
+                cnt.closePath();
+                cnt.fill();
+            }
+            draw_uni(cnt, pos) {
+                for (let i = 0; i < 3; ++i) {
+                    cnt.strokeStyle = "rgb(0,0,0)";
+                    cnt.beginPath();
+                    seg_to_uni(this.seg(i), pos).draw(cnt, pos);
+                    cnt.stroke();
+                }
+            }
+            draw_inv(cnt, pos, ir) {
+                for (let i = 0; i < 3; ++i) {
+                    cnt.strokeStyle = "rgb(255,0,0)";
+                    cnt.beginPath();
+                    inverse(seg_to_uni(this.seg(i), pos), ir).draw(cnt, pos);
+                    cnt.stroke();
                 }
             }
         }
 
-        let seg_to_uni = (seg) => {
-
+        let seg_to_uni = (seg, pos) => {
+            let p0 = seg.vs[0].sub(pos);
+            let p1 = seg.vs[1].sub(pos);
+            let z = p1.sub(p0);
+            let b = z.len()/2;
+            let c = p0.add(p1).div(2);
+            let d = z.rr().norm();
+            let s = seg.s;
+            let t = Math.sqrt(1-s*s*b*b);
+            let u = c.mul(s).add(d.mul(t));
+            let f = u.norm();
+            let m = s*p0.dot(p1) + 2*c.dot(d)*t;
+            let l = m/(Math.sqrt(s*m + 1) + 1);
+            return new Uniform(f, l, s);
         }
 
-        let cnv = null;
-        let cnt = null;
+        let inverse = (uni, ir) => {
+            let d_ = uni.d;
+            let l_ = uni.s/(uni.l*uni.s + 2)*(ir*ir);
+            let s_ = uni.l*(uni.s*uni.l + 2)/(ir*ir);
+            return new Uniform(d_, l_, s_);
+        };
+
         window.addEventListener("load", () => {
-            cnv = document.getElementById("cnv");
-            cnt = cnv.getContext("2d");
+            let cnv = document.getElementById("cnv");
+            let cnt = cnv.getContext("2d");
             let triangle = new Triangle(
                 [new Vec2(400.0, 100.0), new Vec2(53.0, 700.0), new Vec2(800.0 - 53.0, 700.0)],
-                [1e-3, 4e-4, 0]
+                [1e-3, 4e-4, 0.0]
             );
-            cnt.fillStyle = "rgb(0,0,0)";
-            cnt.beginPath();
-            triangle.draw(cnt);
-            cnt.closePath();
-            cnt.fill();
+            let draw = (pos, ir) => {
+                cnt.clearRect(0,0,cnv.width,cnv.height);
+                triangle.draw(cnt);
+                triangle.draw_uni(cnt, pos);
+                triangle.draw_inv(cnt, pos, ir);
+            }
+            cnv.addEventListener("mousemove", (e) => {
+                let p = new Vec2(e.pageX, e.pageY);
+                draw(p, 2e2);
+            })
+            draw(new Vec2(400, 400), 2e2);
         });
     </script>
+    <style type="text/css">
+        body {
+            margin: 0;
+            padding: 0;
+        }
+    </style>
 </head>
 <body>
     <canvas width=800 height=800 id="cnv">HTML5 Canvas not supported</canvas>

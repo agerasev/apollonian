@@ -68,10 +68,10 @@ class Vec2 {
 		return this.clone()._div(v);
 	}
 	dot(v) {
-		return a.x*b.x + a.y*b.y;
+		return this.x*v.x + this.y*v.y;
 	}
 	cross(v) {
-		return a.x*b.y - a.y*b.x;
+		return this.x*v.y - this.y*v.x;
 	}
 
 	neg() {
