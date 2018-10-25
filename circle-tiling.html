@@ -224,36 +224,37 @@
             let cnv = document.getElementById("cnv");
             let cnt = cnv.getContext("2d");
 
-            let circol = (step, depth) => {
+            let circol = (step, depth, back) => {
                 let palette = [
-                    new Color(0.4, 0.1, 0.8),
-                    new Color(0.3, 1.0, 0.1),
-                    new Color(1.0, 0.2, 0.1),
-                    new Color(0.1, 0.8, 0.8),
+                    new Color(0.35, 0.53, 0.80),
+                    new Color(0.45, 0.80, 0.35),
+                    new Color(0.80, 0.45, 0.35),
                 ];
-                return palette[depth%palette.length].mul(Math.pow(0.85, step));
+                let front = palette[depth%palette.length];
+                let fade = Math.pow(0.5, step);
+                return front.mul(1-fade).add(back.mul(fade)).mul(Math.pow(0.98, depth));
             }
             let tricol = (step, depth) => {
                 return new Color(0,0,0);
             }
 
-            let center = (new Vec2(0.5*cnv.width, (2.0/3.0)*cnv.height));
+            let center = (new Vec2(0.5*cnv.width, (1.0/3.0)*cnv.height));
             let raduis = 0.0;
-            if (center.x/sqrt(3) < center.y/1.5) {
-                raduis = center.x/(sqrt(3)/2);
+            if (cnv.width/sqrt(3) < cnv.height/1.5) {
+                raduis = cnv.width/(sqrt(3));
             } else {
-                raduis = center.y/0.75;
+                raduis = cnv.height/1.5;
             }
-            raduis *= 0.99;
+            raduis *= -0.99;
             let triangle = build_regular_triangle(center, raduis);
 
-            //cnt.fillStyle = circol(0,0).toString();
-            //cnt.fillRect(0,0,cnv.width,cnv.height);
+            cnt.fillStyle = (new Color(0.94,0.94,0.94)).toString();
+            cnt.fillRect(0,0,cnv.width,cnv.height);
 
             draw_triangle(cnt, triangle, tricol(0,0));
             
             let minrad = 0.4;
-            let stack = [[triangle, 0, 0]];
+            let stack = [[triangle, 0, 0, new Color(0.94,0.94,0.94)]];
             let check_every = 10;
 
             let draw_frame = () => {
@@ -271,21 +272,26 @@
                             break;
                         }
                     }
+
                     let elem = stack.pop();
                     let tri = elem[0];
                     let depth = elem[1];
                     let step = elem[2];
+                    let color = elem[3];
+
                     let circle = tri.incircle();
                     let nearest = tri.nearest(circle.p);
                     let intri = build_triangle(nearest);
-                    draw_circle(cnt, circle, circol(step, depth));
+
+                    draw_circle(cnt, circle, color);
                     draw_triangle(cnt, intri, tricol(step, depth));
+
                     if (circle.r >= minrad) {
                         let ts = tri.split(circle, nearest);
                         for (let i = 0; i < 3; ++i) {
-                            stack.push([ts[i], depth, step + 1]);
+                            stack.push([ts[i], depth, step + 1, circol(1, depth, color)]);
                         }
-                        stack.push([intri, depth + 1, 0]);
+                        stack.push([intri, depth + 1, 0, circol(0, depth + 1, color)]);
                     }
                     j += 1;
                 }
