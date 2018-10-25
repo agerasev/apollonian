@@ -180,8 +180,7 @@
                 }
                 return points;
             }
-            split(circle) {
-                let ps = this.nearest(circle.p);
+            split(circle, ps) {
                 let ts = [];
                 for (let i = 0; i < 3; ++i) {
                     let vrts = [this.vertices[i], ps[i], ps[(i+2)%3]];
@@ -192,26 +191,30 @@
             }
         }
 
-        let build_triangle = (pos, rad) => {
+        let build_regular_triangle = (pos, rad) => {
             let vrts = [];
-            let arcs = [];
             for (let i = 0; i < 3; ++i) {
                 vrts.push(pos.add(DIRS[i].mul(rad)));
             }
+            return build_triangle(vrts);
+        }
+
+        let build_triangle = (vrts) => {
+            let arcs = [];
             for (let i = 0; i < 3; ++i) {
                 arcs.push(new Segment(vrts[i], vrts[(i+1)%3], 0));
             }
-            return new Triangle(vrts, arcs);            
+            return new Triangle(vrts, arcs);
         }
 
-        let draw_circle = (cnt, cir) => {
-            cnt.fillStyle = "rgb(255,255,255)";
+        let draw_circle = (cnt, cir, col) => {
+            cnt.fillStyle = col;
             cnt.beginPath();
             cir.draw(cnt);
             cnt.fill();
         }
-        let draw_triangle = (cnt, tri) => {
-            cnt.fillStyle = "rgb(0,0,0)";
+        let draw_triangle = (cnt, tri, col) => {
+            cnt.fillStyle = col;
             tri.draw(cnt);
             cnt.fill();
         };
@@ -219,6 +222,9 @@
         window.addEventListener("load", () => {
             let cnv = document.getElementById("cnv");
             let cnt = cnv.getContext("2d");
+
+            let circol = "rgb(31,0,63)";
+            let tricol = "rgb(255,191,0)";
 
             let center = (new Vec2(0.5*cnv.width, (2.0/3.0)*cnv.height));
             let raduis = 0.0;
@@ -228,9 +234,12 @@
                 raduis = center.y/0.75;
             }
             raduis *= 0.99;
-            let triangle = build_triangle(center, raduis);
+            let triangle = build_regular_triangle(center, raduis);
 
-            draw_triangle(cnt, triangle);
+            cnt.fillStyle = circol;
+            cnt.fillRect(0,0,cnv.width,cnv.height);
+
+            draw_triangle(cnt, triangle, tricol);
             
             let minrad = 1;
             let stack = [[triangle, 0]];
@@ -242,11 +251,12 @@
                 let tri = elem[0];
                 let depth = elem[1];
                 let circle = tri.incircle();
-                let intri = build_triangle(circle.p, ((depth%2)?1:-1)*circle.r);
-                draw_circle(cnt, circle);
-                draw_triangle(cnt, intri);
+                let nearest = tri.nearest(circle.p);
+                let intri = build_triangle(nearest);
+                draw_circle(cnt, circle, circol);
+                draw_triangle(cnt, intri, tricol);
                 if (circle.r >= minrad) {
-                    let ts = tri.split(circle);
+                    let ts = tri.split(circle, nearest);
                     for (let i = 0; i < 3; ++i) {
                         stack.push([ts[i], depth]);
                     }
