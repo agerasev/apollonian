@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <title>Circle Tiling</title>
     <script type="text/javascript" src="./vec2.js"></script>
+    <script type="text/javascript" src="./color.js"></script>
     <script type="text/javascript">
         let EPS = 1e-8;
         let PI = Math.PI;
@@ -208,13 +209,13 @@
         }
 
         let draw_circle = (cnt, cir, col) => {
-            cnt.fillStyle = col;
+            cnt.fillStyle = col.toString();
             cnt.beginPath();
             cir.draw(cnt);
             cnt.fill();
         }
         let draw_triangle = (cnt, tri, col) => {
-            cnt.fillStyle = col;
+            cnt.fillStyle = col.toString();
             tri.draw(cnt);
             cnt.fill();
         };
@@ -223,8 +224,18 @@
             let cnv = document.getElementById("cnv");
             let cnt = cnv.getContext("2d");
 
-            let circol = "rgb(0,0,0)";
-            let tricol = "rgb(255,255,255)";
+            let circol = (step, depth) => {
+                let palette = [
+                    new Color(0.4, 0.1, 0.8),
+                    new Color(0.3, 1.0, 0.1),
+                    new Color(1.0, 0.2, 0.1),
+                    new Color(0.1, 0.8, 0.8),
+                ];
+                return palette[depth%palette.length].mul(Math.pow(0.85, step));
+            }
+            let tricol = (step, depth) => {
+                return new Color(0,0,0);
+            }
 
             let center = (new Vec2(0.5*cnv.width, (2.0/3.0)*cnv.height));
             let raduis = 0.0;
@@ -236,13 +247,13 @@
             raduis *= 0.99;
             let triangle = build_regular_triangle(center, raduis);
 
-            cnt.fillStyle = circol;
-            cnt.fillRect(0,0,cnv.width,cnv.height);
+            //cnt.fillStyle = circol(0,0).toString();
+            //cnt.fillRect(0,0,cnv.width,cnv.height);
 
-            draw_triangle(cnt, triangle, tricol);
+            draw_triangle(cnt, triangle, tricol(0,0));
             
             let minrad = 0.4;
-            let stack = [[triangle, 0]];
+            let stack = [[triangle, 0, 0]];
             let check_every = 10;
 
             let draw_frame = () => {
@@ -263,17 +274,18 @@
                     let elem = stack.pop();
                     let tri = elem[0];
                     let depth = elem[1];
+                    let step = elem[2];
                     let circle = tri.incircle();
                     let nearest = tri.nearest(circle.p);
                     let intri = build_triangle(nearest);
-                    draw_circle(cnt, circle, circol);
-                    draw_triangle(cnt, intri, tricol);
+                    draw_circle(cnt, circle, circol(step, depth));
+                    draw_triangle(cnt, intri, tricol(step, depth));
                     if (circle.r >= minrad) {
                         let ts = tri.split(circle, nearest);
                         for (let i = 0; i < 3; ++i) {
-                            stack.push([ts[i], depth]);
+                            stack.push([ts[i], depth, step + 1]);
                         }
-                        stack.push([intri, depth + 1]);
+                        stack.push([intri, depth + 1, 0]);
                     }
                     j += 1;
                 }
