@@ -223,8 +223,8 @@
             let cnv = document.getElementById("cnv");
             let cnt = cnv.getContext("2d");
 
-            let circol = "rgb(31,0,63)";
-            let tricol = "rgb(255,191,0)";
+            let circol = "rgb(0,0,0)";
+            let tricol = "rgb(255,255,255)";
 
             let center = (new Vec2(0.5*cnv.width, (2.0/3.0)*cnv.height));
             let raduis = 0.0;
@@ -241,28 +241,44 @@
 
             draw_triangle(cnt, triangle, tricol);
             
-            let minrad = 1;
+            let minrad = 0.4;
             let stack = [[triangle, 0]];
-            while (true) {
-                if (stack.length <= 0) {
-                    break;
-                }
-                let elem = stack.pop();
-                let tri = elem[0];
-                let depth = elem[1];
-                let circle = tri.incircle();
-                let nearest = tri.nearest(circle.p);
-                let intri = build_triangle(nearest);
-                draw_circle(cnt, circle, circol);
-                draw_triangle(cnt, intri, tricol);
-                if (circle.r >= minrad) {
-                    let ts = tri.split(circle, nearest);
-                    for (let i = 0; i < 3; ++i) {
-                        stack.push([ts[i], depth]);
+            let check_every = 10;
+
+            let draw_frame = () => {
+                let start = new Date();
+                let j = 0;
+                while (true) {
+                    if (stack.length <= 0) {
+                        break;
                     }
-                    stack.push([intri, depth + 1]);
+                    if ((j+1) % check_every == 0) {
+                        let now = new Date();
+                        let diff = now - start;
+                        if (diff > 50) {
+                            window.requestAnimationFrame(draw_frame);
+                            break;
+                        }
+                    }
+                    let elem = stack.pop();
+                    let tri = elem[0];
+                    let depth = elem[1];
+                    let circle = tri.incircle();
+                    let nearest = tri.nearest(circle.p);
+                    let intri = build_triangle(nearest);
+                    draw_circle(cnt, circle, circol);
+                    draw_triangle(cnt, intri, tricol);
+                    if (circle.r >= minrad) {
+                        let ts = tri.split(circle, nearest);
+                        for (let i = 0; i < 3; ++i) {
+                            stack.push([ts[i], depth]);
+                        }
+                        stack.push([intri, depth + 1]);
+                    }
+                    j += 1;
                 }
             }
+            window.requestAnimationFrame(draw_frame);
         });
     </script>
     <style type="text/css">
@@ -273,6 +289,6 @@
     </style>
 </head>
 <body>
-    <canvas width=800 height=800 id="cnv">HTML5 Canvas not supported</canvas>
+    <canvas width=1024 height=1024 id="cnv">HTML5 Canvas not supported</canvas>
 </body>
 </html>
