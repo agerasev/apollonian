@@ -6,12 +6,14 @@
     <script type="text/javascript" src="./vec2.js"></script>
     <script type="text/javascript">
         let EPS = 1e-8;
+        let PI = Math.PI;
         let sqr = (x) => {
             return x*x;
         };
         let sqrt = (x) => {
             return Math.sqrt(x);
         }
+        let DIRS = [new Vec2(0, -1), new Vec2(-sqrt(3)/2, 0.5), new Vec2(sqrt(3)/2, 0.5)];
 
         class Circle {
             constructor(p, r) {
@@ -19,7 +21,7 @@
                 this.r = r;
             }
             draw(cnt) {
-                cnt.arc(this.p.x, this.p.y, this.r, 0, 2*Math.PI);
+                cnt.arc(this.p.x, this.p.y, this.r, 0, 2*PI);
             }
             inverse(pos) {
                 let ip = this.p.sub(pos);
@@ -103,7 +105,7 @@
                 } else {
                     let r = this.s > 0 ? 1/this.s : -1/this.s;
                     let p = pos.add(this.d.mul(this.l + 1/this.s));
-                    cnt.arc(p.x, p.y, r, 0, 2*Math.PI);
+                    cnt.arc(p.x, p.y, r, 0, 2*PI);
                 }
             }
             inverse() {
@@ -190,37 +192,65 @@
             }
         }
 
+        let build_triangle = (pos, rad) => {
+            let vrts = [];
+            let arcs = [];
+            for (let i = 0; i < 3; ++i) {
+                vrts.push(pos.add(DIRS[i].mul(rad)));
+            }
+            for (let i = 0; i < 3; ++i) {
+                arcs.push(new Segment(vrts[i], vrts[(i+1)%3], 0));
+            }
+            return new Triangle(vrts, arcs);            
+        }
+
+        let draw_circle = (cnt, cir) => {
+            cnt.fillStyle = "rgb(255,255,255)";
+            cnt.beginPath();
+            cir.draw(cnt);
+            cnt.fill();
+        }
+        let draw_triangle = (cnt, tri) => {
+            cnt.fillStyle = "rgb(0,0,0)";
+            tri.draw(cnt);
+            cnt.fill();
+        };
+
         window.addEventListener("load", () => {
             let cnv = document.getElementById("cnv");
             let cnt = cnv.getContext("2d");
-            let vrts = [new Vec2(400.0, 100.0), new Vec2(53.0, 700.0), new Vec2(800.0 - 53.0, 700.0)];
-            let triangle = new Triangle(vrts, [
-                new Segment(vrts[0], vrts[1], 0),
-                new Segment(vrts[1], vrts[2], 0),
-                new Segment(vrts[2], vrts[0], 0),
-            ]);
 
-            cnt.fillStyle = "rgb(0,0,0)";
-            triangle.draw(cnt);
-            cnt.fill();
+            let center = (new Vec2(0.5*cnv.width, (2.0/3.0)*cnv.height));
+            let raduis = 0.0;
+            if (center.x/sqrt(3) < center.y/1.5) {
+                raduis = center.x/(sqrt(3)/2);
+            } else {
+                raduis = center.y/0.75;
+            }
+            raduis *= 0.99;
+            let triangle = build_triangle(center, raduis);
+
+            draw_triangle(cnt, triangle);
             
-            cnt.fillStyle = "rgb(255,255,255)";
-            let minrad = 2;
-            let stack = [triangle];
+            let minrad = 1;
+            let stack = [[triangle, 0]];
             while (true) {
                 if (stack.length <= 0) {
                     break;
                 }
-                let tri = stack.pop();
+                let elem = stack.pop();
+                let tri = elem[0];
+                let depth = elem[1];
                 let circle = tri.incircle();
-                cnt.beginPath();
-                circle.draw(cnt);
-                cnt.fill();
+                let intri = build_triangle(circle.p, ((depth%2)?1:-1)*circle.r);
+                draw_circle(cnt, circle);
+                draw_triangle(cnt, intri);
                 if (circle.r >= minrad) {
                     let ts = tri.split(circle);
                     for (let i = 0; i < 3; ++i) {
-                        stack.push(ts[i]);
+                        stack.push([ts[i], depth]);
                     }
+                    stack.push([intri, depth + 1]);
                 }
             }
         });
