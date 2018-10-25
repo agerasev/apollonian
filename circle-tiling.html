@@ -122,8 +122,10 @@
                 let dr = ur.d.lr();
                 let dl = ul.d.rr();
                 let d = dr.add(dl).norm();
-                let pr = pos.add(ur.d.mul(ur.l));
-                let pl = pos.add(ul.d.mul(ul.l));
+                let pr = this.seg(0).vs[1].sub(pos);
+                let pl = this.seg(2).vs[0].sub(pos);
+                pr = pr.div(pr.len2()).mul(ir*ir).add(pos);
+                pl = pl.div(pl.len2()).mul(ir*ir).add(pos);
                 let prl = pr.add(d.lr().mul(pl.sub(pr).cross(dl)/d.lr().cross(dl)));
                 let pc = pr.add(prl).div(2);
 
@@ -286,7 +288,7 @@
             let cnt = cnv.getContext("2d");
             let triangle = new Triangle(
                 [new Vec2(400.0, 100.0), new Vec2(53.0, 700.0), new Vec2(800.0 - 53.0, 700.0)],
-                [1e-3, 4e-4, 0.0]
+                [0.0, 0.0, 0.0]
             );
             let draw = (pos, ir) => {
                 cnt.clearRect(0,0,cnv.width,cnv.height);
