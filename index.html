@@ -2,16 +2,311 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>JS Samples</title>
+    <title>Apollonian gasket</title>
+    <script type="text/javascript" src="./vec2.js"></script>
+    <script type="text/javascript" src="./color.js"></script>
+    <script type="text/javascript">
+        let EPS = 1e-8;
+        let PI = Math.PI;
+        let sqr = (x) => {
+            return x*x;
+        };
+        let sqrt = (x) => {
+            return Math.sqrt(x);
+        }
+        let DIRS = [new Vec2(0, -1), new Vec2(-sqrt(3)/2, 0.5), new Vec2(sqrt(3)/2, 0.5)];
+
+        class Circle {
+            constructor(p, r) {
+                this.p = p;
+                this.r = r;
+            }
+            draw(cnt) {
+                cnt.arc(this.p.x, this.p.y, this.r, 0, 2*PI);
+            }
+            inverse(pos) {
+                let ip = this.p.sub(pos);
+                return new Circle(
+                    pos.add(ip.div(ip.len2() - sqr(this.r))),
+                    this.r/(ip.len2() - sqr(this.r))
+                );
+            }
+            segment(d0, d1) {
+                return new Segment(
+                    this.p.add(d0.mul(this.r)), 
+                    this.p.add(d1.mul(this.r)),
+                    1/this.r
+                );
+            }
+            uniform(pos) {
+                let d = this.p.sub(pos);
+                let l = d.len();
+                return new Uniform(d.div(l), l - this.r, 1/this.r);
+            }
+        }
+
+        class Segment {
+            constructor(v0, v1, s) {
+                this.vs = [v0, v1];
+                this.s = s;
+            }
+            draw(cnt) {
+                if (Math.abs(this.s) < EPS) {
+                    //cnt.moveTo(this.vs[0].x, this.vs[0].y);
+                    cnt.lineTo(this.vs[1].x, this.vs[1].y);
+                } else {
+                    let a = this.vs[0];
+                    let b = this.vs[1];
+                    let c = a.add(b).div(2);
+                    let d = b.sub(a).rr();
+                    let l = d.len()/2;
+                    d = d.div(2*l);
+                    let s = this.s;
+                    let t = sqrt(1/(s*s) - l*l);
+                    let p = c.add(d.mul(t));
+
+                    let da = a.sub(p);
+                    let aa = Math.atan2(da.y, da.x);
+                    let db = b.sub(p);
+                    let ab = Math.atan2(db.y, db.x);
+
+                    cnt.arc(p.x, p.y, 1/s, aa, ab);
+                }
+            }
+            uniform(pos) {
+                let p0 = this.vs[0].sub(pos);
+                let p1 = this.vs[1].sub(pos);
+                let z = p1.sub(p0);
+                let b = z.len()/2;
+                let c = p0.add(p1).div(2);
+                let d = z.rr().norm();
+                let s = this.s;
+                let t = sqrt(1-s*s*b*b);
+                let u = c.mul(s).add(d.mul(t));
+                let f = u.norm();
+                let m = s*p0.dot(p1) + 2*c.dot(d)*t;
+                let l = m/(sqrt(s*m + 1) + 1);
+                return new Uniform(f, l, s);
+            }
+        }
+
+        class Uniform {
+            constructor(d, l, s) {
+                this.d = d;
+                this.l = l;
+                this.s = s;
+            }
+            draw(cnt, pos) {
+                if (Math.abs(this.s) < sqrt(EPS)) {
+                    let c = pos.add(this.d.mul(this.l));
+                    let f = c.add(this.d.lr().mul(1e4));
+                    let t = c.add(this.d.rr().mul(1e4));
+                    cnt.moveTo(f.x, f.y);
+                    cnt.lineTo(t.x, t.y);
+                } else {
+                    let r = this.s > 0 ? 1/this.s : -1/this.s;
+                    let p = pos.add(this.d.mul(this.l + 1/this.s));
+                    cnt.arc(p.x, p.y, r, 0, 2*PI);
+                }
+            }
+            inverse() {
+                let d_ = this.d;
+                let l_ = this.s/(this.l*this.s + 2);
+                let s_ = this.l*(this.s*this.l + 2);
+                return new Uniform(d_, l_, s_);
+            }
+        }
+
+        class Triangle {
+            constructor(vertices, arcs) {
+                this.vertices = vertices;
+                this.arcs = arcs;
+            }
+            draw(cnt) {
+                cnt.beginPath();
+                for (let i = 0; i < 3; ++i) {
+                    this.arcs[i].draw(cnt);
+                }
+                cnt.closePath();
+            }
+            incircle() {
+                let pos = this.vertices[0];
+
+                let ur = this.arcs[0].uniform(pos).inverse();
+                let uo = this.arcs[1].uniform(pos).inverse();
+                let ul = this.arcs[2].uniform(pos).inverse();
+
+
+                let dr = ur.d.lr();
+                let dl = ul.d.rr();
+                let d = dr.add(dl).norm();
+                let pr = this.vertices[1].sub(pos);
+                let pl = this.vertices[2].sub(pos);
+                pr = pr.div(pr.len2()).add(pos);
+                pl = pl.div(pl.len2()).add(pos);
+                let prl = pr.add(d.lr().mul(pl.sub(pr).cross(dl)/d.lr().cross(dl)));
+                let pc = pr.add(prl).div(2);
+
+                let s = uo.s;
+                let sk = pc.sub(pos).sub(uo.d.mul(uo.l)).mul(s).sub(uo.d);
+
+                let td = sqrt(sqr(sk.dot(d)) - sk.len2() + 1) + sk.dot(d);
+                let pp = pc.sub(pos);
+                let pp2 = pp.len2();
+                let ppd = pp.dot(uo.d);
+                let tn = 2*(ppd - uo.l) - s*(pp2 - 2*ppd*uo.l + sqr(uo.l));
+                let t = tn/td;
+                let p = pc.add(d.mul(t));
+                
+                let dc = pos.sub(p).mul(s).add(uo.d.mul(s*uo.l + 1)).norm();
+                let cb = -d.dot(dc);
+                let ca = d.dot(dr);
+                let sa = d.cross(dr);
+                let ta = sa/ca;
+                let l = pr.sub(prl).len()/2 + t*ta;
+                let ax = s*sqr(ca);
+                let bx = cb - sa - s*l*ca*sa;
+                let cx = -l*ca*(2 + s*l*ca);
+                let x = (sqrt(sqr(bx) - ax*cx) - bx)/ax;
+                let ic = p.add(d.mul(x));
+                let ir = l*ca + x*sa;
+
+                return (new Circle(ic, ir)).inverse(pos);
+            }
+            nearest(pos) {
+                let points = [];
+                for (let i = 0; i < 3; ++i) {
+                    let u = this.arcs[i].uniform(pos);
+                    points.push(pos.add(u.d.mul(u.l)));
+                }
+                return points;
+            }
+            split(circle, ps) {
+                let ts = [];
+                for (let i = 0; i < 3; ++i) {
+                    let vrts = [this.vertices[i], ps[i], ps[(i+2)%3]];
+                    let tri = new Triangle(vrts, [this.arcs[i], circle, this.arcs[(i+2)%3]]);
+                    ts.push(tri);
+                }
+                return ts;
+            }
+        }
+
+        let build_regular_triangle = (pos, rad) => {
+            let vrts = [];
+            for (let i = 0; i < 3; ++i) {
+                vrts.push(pos.add(DIRS[i].mul(rad)));
+            }
+            return build_triangle(vrts);
+        }
+
+        let build_triangle = (vrts) => {
+            let arcs = [];
+            for (let i = 0; i < 3; ++i) {
+                arcs.push(new Segment(vrts[i], vrts[(i+1)%3], 0));
+            }
+            return new Triangle(vrts, arcs);
+        }
+
+        let draw_circle = (cnt, cir, col) => {
+            cnt.fillStyle = col.toString();
+            cnt.beginPath();
+            cir.draw(cnt);
+            cnt.fill();
+        }
+        let draw_triangle = (cnt, tri, col) => {
+            cnt.fillStyle = col.toString();
+            tri.draw(cnt);
+            cnt.fill();
+        };
+
+        window.addEventListener("load", () => {
+            let cnv = document.getElementById("cnv");
+            let cnt = cnv.getContext("2d");
+
+            let circol = (step, depth, back) => {
+                let palette = [
+                    new Color(0.35, 0.53, 0.80),
+                    new Color(0.45, 0.80, 0.35),
+                    new Color(0.80, 0.45, 0.35),
+                ];
+                let front = palette[depth%palette.length];
+                let fade = Math.pow(0.5, step);
+                return front.mul(1-fade).add(back.mul(fade)).mul(Math.pow(0.98, depth));
+            }
+            let tricol = (step, depth) => {
+                return new Color(0,0,0);
+            }
+
+            let center = (new Vec2(0.5*cnv.width, (1.0/3.0)*cnv.height));
+            let raduis = 0.0;
+            if (cnv.width/sqrt(3) < cnv.height/1.5) {
+                raduis = cnv.width/(sqrt(3));
+            } else {
+                raduis = cnv.height/1.5;
+            }
+            raduis *= -0.99;
+            let triangle = build_regular_triangle(center, raduis);
+
+            cnt.fillStyle = (new Color(0.94,0.94,0.94)).toString();
+            cnt.fillRect(0,0,cnv.width,cnv.height);
+
+            draw_triangle(cnt, triangle, tricol(0,0));
+            
+            let minrad = 0.4;
+            let stack = [[triangle, 0, 0, new Color(0.94,0.94,0.94)]];
+            let check_every = 10;
+
+            let draw_frame = () => {
+                let start = new Date();
+                let j = 0;
+                while (true) {
+                    if (stack.length <= 0) {
+                        break;
+                    }
+                    if ((j+1) % check_every == 0) {
+                        let now = new Date();
+                        let diff = now - start;
+                        if (diff > 50) {
+                            window.requestAnimationFrame(draw_frame);
+                            break;
+                        }
+                    }
+
+                    let elem = stack.pop();
+                    let tri = elem[0];
+                    let depth = elem[1];
+                    let step = elem[2];
+                    let color = elem[3];
+
+                    let circle = tri.incircle();
+                    let nearest = tri.nearest(circle.p);
+                    let intri = build_triangle(nearest);
+
+                    draw_circle(cnt, circle, color);
+                    draw_triangle(cnt, intri, tricol(step, depth));
+
+                    if (circle.r >= minrad) {
+                        let ts = tri.split(circle, nearest);
+                        for (let i = 0; i < 3; ++i) {
+                            stack.push([ts[i], depth, step + 1, circol(1, depth, color)]);
+                        }
+                        stack.push([intri, depth + 1, 0, circol(0, depth + 1, color)]);
+                    }
+                    j += 1;
+                }
+            }
+            window.requestAnimationFrame(draw_frame);
+        });
+    </script>
+    <style type="text/css">
+        body {
+            margin: 0;
+            padding: 0;
+        }
+    </style>
 </head>
 <body>
-    <h1>JS Samples</h1>
-    Small collection of some JS samples written by me
-    <ul>
-        <li><a href="./common-mother.html">common-mother</a> - simple simulation to prove the Mitochondrial Eve hypothesis</li>
-        <li><a href="./slopes.html">slopes</a> - draws a fractal function</li> 
-        <li><a href="./intfract.html">intfract</a> - renders an fractal based on Fibonacci numbers in high resolution</li>
-        <li><a href="./circle-tiling.html">circle-tiling</a> - renders a recursive circle tiling inside a triangle</li>
-    </ul>
+    <canvas width=1024 height=1024 id="cnv">HTML5 Canvas not supported</canvas>
 </body>
 </html>
